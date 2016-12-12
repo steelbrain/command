@@ -1,0 +1,31 @@
+{
+  "name": "sb-cli",
+  "version": "3.1.0",
+  "description": "CLI command and options parser",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "(apm test) && (flow check) && (eslint . )",
+    "clean": "rm -rf lib",
+    "build": "npm run clean; babel src --out-dir lib",
+    "watch": "npm run build -- -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steelbrain/sb-cli"
+  },
+  "keywords": [
+    "cli",  "app"
+  ],
+  "author": "steelbrain <i@steelbrain.me>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/steelbrain/sb-cli/issues"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "babel-cli": "^6.11.4",
+    "babel-preset-steelbrain": "^4.0.2",
+    "eslint-config-steelbrain": "^1.0.4",
+    "flow-bin": "^0.32.0"
+  }
+}
