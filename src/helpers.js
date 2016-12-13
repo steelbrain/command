@@ -1,63 +1,82 @@
 /* @flow */
 
 import invariant from 'assert'
-import type { OptionType } from './types'
+import type { ParameterType } from './types'
 
-const COMMAND_REGEX = /^[a-z\-\._]+$/i
+const DELIMETER = /,\s+|,|\s+/
 const OPTION_NAME_SHORT = /^\-(\w)$/
 const OPTION_NAME_LONG = /^\-\-(\w+)$/
 const OPTION_STRING_REQUIRED = /<\S+>/
 const OPTION_STRING_OPTIONAL = /\[\S+\]/
 const OPTION_STRING_REQUIRED_VARIDIAC = /<\S+ *\.\.\.>/
 const OPTION_STRING_OPTIONAL_VARIDIAC = /\[\S+ *\.\.\.\]/
-export const COMMAND_DELIMTER = '.'
 
-export function parseCommand(command: string): Array<string> {
-  const errorMessage = `command '${command}' is invalid`
-  if (!COMMAND_REGEX.test(command)) {
+export function getParameterType(chunk: string): ?ParameterType {
+  switch (true) {
+    case OPTION_STRING_REQUIRED.test(chunk):
+      return 'required-string'
+    case OPTION_STRING_OPTIONAL.test(chunk):
+      return 'optional-string'
+    case OPTION_STRING_REQUIRED_VARIDIAC.test(chunk):
+      return 'required-string-variadic'
+    case OPTION_STRING_OPTIONAL_VARIDIAC.test(chunk):
+      return 'optional-string-variadic'
+    default:
+      return null
+  }
+}
+
+export function parseCommand(givenCommand: string): { command: Array<string>, parameters: Array<ParameterType> } {
+  let command = []
+  const chunks = givenCommand.split(DELIMETER).filter(i => i)
+  const parameters = []
+  const errorMessage = `command '${givenCommand}' is invalid`
+
+  for (let i = 0, length = chunks.length; i < length; i++) {
+    const chunk = chunks[i].trim()
+    if (i === 0) {
+      // First is always command
+      command = command.concat(chunk.split('.').filter(j => j))
+    } else {
+      const parameterType = getParameterType(chunk)
+      if (parameterType) {
+        parameters.push(parameterType)
+      } else throw new Error(errorMessage)
+    }
+  }
+  if (!command.length) {
     throw new Error(errorMessage)
   }
 
-  const toReturn = []
-  const chunks = command.split(COMMAND_DELIMTER)
-  for (let i = 0, length = chunks.length; i < length; i++) {
-    const chunk = chunks[i]
-    if (!chunk.length) {
-      throw new Error(errorMessage)
-    }
-    toReturn.push(chunk)
+  return {
+    command,
+    parameters,
   }
-  return toReturn
 }
 
-export function parseOption(option: string): { aliases: Array<string>, parameters: Array<OptionType> } {
-  let optionsDone = false
-  const chunks = option.split(/,\s+|,|\s+/)
+export function parseOption(option: string): { aliases: Array<string>, parameters: Array<ParameterType> } {
+  let aliasesDone = false
+  const chunks = option.split(DELIMETER).filter(i => i)
   const aliases = []
   const parameters = []
   const errorMessage = `option '${option}' is invalid`
 
   for (let i = 0, length = chunks.length; i < length; i++) {
     const chunk = chunks[i].trim()
-    if (!optionsDone) {
+    if (!aliasesDone) {
       if (OPTION_NAME_SHORT.test(chunk)) {
         aliases.push(chunk)
       } else if (OPTION_NAME_LONG.test(chunk)) {
         aliases.push(chunk)
       } else {
-        optionsDone = true
+        aliasesDone = true
       }
     }
 
-    if (optionsDone) {
-      if (OPTION_STRING_REQUIRED.test(chunk)) {
-        parameters.push('required-string')
-      } else if (OPTION_STRING_OPTIONAL.test(chunk)) {
-        parameters.push('optional-string')
-      } else if (OPTION_STRING_REQUIRED_VARIDIAC.test(chunk)) {
-        parameters.push('required-string-variadic')
-      } else if (OPTION_STRING_OPTIONAL_VARIDIAC.test(chunk)) {
-        parameters.push('optional-string-variadic')
+    if (aliasesDone) {
+      const parameterType = getParameterType(chunk)
+      if (parameterType) {
+        parameters.push(parameterType)
       } else throw new Error(errorMessage)
     }
   }
