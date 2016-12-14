@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /* @flow */
 
 const cli = require('../')
@@ -14,3 +16,5 @@ cli
     console.log('git-remote-add', addr)
   })
   .option('-v, --verbose', 'Enable verbosity', false)
+  .option('-c, --config <key> <value>', 'Config')
+  .parse(process.argv)
