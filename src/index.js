@@ -100,7 +100,7 @@ class Command {
     for (let i = 0, length = this.options.length; i < length; i++) {
       const option = this.options[i]
       for (let j = 0, jlength = option.aliases.length; j < jlength; j++) {
-        options[option.aliases[j]] = Helpers.option.singlify(option.parameters, option.defaultValues)
+        options[camelCase(option.aliases[j])] = Helpers.option.singlify(option.parameters, option.defaultValues)
       }
     }
     for (let i = 0, length = rawOptions.length; i < length; i++) {
@@ -133,6 +133,7 @@ class Command {
         }
       }
       if (closest) {
+        commandCallback = closest.callback
         commandParameters = rawNonOptions.slice(closest.command.length)
         if (commandParameters.length < closest.parameters.filter(i => ~i.indexOf('required')).length) {
           errorMessage = `Not enough parameters for command: ${closest.command.join('.')}`
@@ -153,7 +154,7 @@ class Command {
       console.log(`Error: ${errorMessage}`)
     }
     if (!errorMessage && options.version) {
-      console.log(`${Helpers.getDisplayName(argv)} v${this.appVersion}`)
+      console.log(this.appVersion)
       process.exit(0)
     }
     if (errorMessage || options.help || !commandCallback) {
