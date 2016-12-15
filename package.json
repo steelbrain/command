@@ -1,6 +1,6 @@
 {
   "name": "sb-cli",
-  "version": "3.1.0",
+  "version": "0.0.0",
   "description": "CLI command and options parser",
   "main": "lib/index.js",
   "scripts": {
