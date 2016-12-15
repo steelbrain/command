@@ -100,7 +100,7 @@ class Command {
     for (let i = 0, length = this.options.length; i < length; i++) {
       const option = this.options[i]
       for (let j = 0, jlength = option.aliases.length; j < jlength; j++) {
-        options[option.aliases[j]] = Helpers.option.singlify(option.parameters, option.defaultValues)
+        options[camelCase(option.aliases[j])] = Helpers.option.singlify(option.parameters, option.defaultValues)
       }
     }
     for (let i = 0, length = rawOptions.length; i < length; i++) {
