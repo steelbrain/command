@@ -133,6 +133,7 @@ class Command {
         }
       }
       if (closest) {
+        commandCallback = closest.callback
         commandParameters = rawNonOptions.slice(closest.command.length)
         if (commandParameters.length < closest.parameters.filter(i => ~i.indexOf('required')).length) {
           errorMessage = `Not enough parameters for command: ${closest.command.join('.')}`
