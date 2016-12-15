@@ -2,9 +2,9 @@
 
 /* @flow */
 
-const cli = require('../')
+const command = require('../')
 
-cli
+command
   .version('0.0.1')
   .description('Git Versonal Control System')
   .command('init', 'Initialize an empty repo', function() {

@@ -1,7 +1,7 @@
-sb-cli
+sb-command
 =========
 
-sb-cli is the CLI parser you'll ever need.
+sb-command is the CLI parser you'll ever need.
 
 ## Documentation
 
@@ -18,9 +18,9 @@ To add nested commands, simply join them with dot. For example for `remote add` 
 ### Example
 
 ```js
-const cli = require('sb-cli')
+const command = require('sb-command')
 
-cli
+command
   .version('0.0.1')
   .description('Git Versonal Control System')
   .command('init', 'Initialize an empty repo', function(options) {
@@ -41,7 +41,7 @@ cli
 ### API
 
 ```js
-export class API {
+export class Command {
   default(callback: Function): this
   version(version: string): this
   description(descriptionText: string): this
@@ -55,7 +55,7 @@ export class API {
   }
   showHelp(soft: boolean = false): string
 }
-export default new API
+export default new command
 ```
 
 ## LICENSE

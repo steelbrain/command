@@ -4,11 +4,11 @@ import cliff from 'cliff'
 import invariant from 'assert'
 import camelCase from 'camelcase'
 import * as Helpers from './helpers'
-import type { Command, Option } from './types'
+import type { Command as CommandType, Option } from './types'
 
-class CLI {
+class Command {
   options: Array<Option>;
-  commands: Array<Command>;
+  commands: Array<CommandType>;
   appVersion: string;
   descriptionText: ?string;
   defaultCallback: ?Function;
@@ -204,8 +204,8 @@ class CLI {
   }
 }
 
-const cli = new CLI()
+const command = new Command()
 // $FlowIgnore: Custom property
-cli.CLI = CLI
+command.Command = Command
 
-module.exports = cli
+module.exports = command
