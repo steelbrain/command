@@ -23,7 +23,8 @@
     "url": "https://github.com/steelbrain/sb-cli/issues"
   },
   "dependencies": {
-    "camelcase": "^4.0.0"
+    "camelcase": "^4.0.0",
+    "cliff": "^0.1.10"
   },
   "devDependencies": {
     "babel-cli": "^6.11.4",
