@@ -153,7 +153,7 @@ class Command {
       console.log(`Error: ${errorMessage}`)
     }
     if (!errorMessage && options.version) {
-      console.log(`${Helpers.getDisplayName(argv)} v${this.appVersion}`)
+      console.log(this.appVersion)
       process.exit(0)
     }
     if (errorMessage || options.help || !commandCallback) {
