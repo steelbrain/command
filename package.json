@@ -14,14 +14,18 @@
     "url": "https://github.com/steelbrain/sb-cli"
   },
   "keywords": [
-    "cli",  "app"
+    "cli",
+    "app"
   ],
   "author": "steelbrain <i@steelbrain.me>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/steelbrain/sb-cli/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "camelcase": "^4.0.0",
+    "cliff": "^0.1.10"
+  },
   "devDependencies": {
     "babel-cli": "^6.11.4",
     "babel-preset-steelbrain": "^4.0.2",
