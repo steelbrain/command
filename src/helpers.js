@@ -4,6 +4,10 @@ import Path from 'path'
 import invariant from 'assert'
 import type { Option, ParameterType } from './types'
 
+export function getDisplayName(argv: Array<string>): string {
+  return Path.basename(argv[1] || 'node')
+}
+
 export const DELIMETER = /,\s+|,|\s+/
 export const OPTION_NAME = /^\-\-(.*)|\-(.*)$/
 export const OPTION_STRING_REQUIRED = /^<(\S+)>$/
@@ -31,15 +35,11 @@ export function getParameterType(chunk: string): ?{ type: ParameterType, name: s
   }
 }
 
-export function getDisplayName(argv: Array<string>): string {
-  return Path.basename(argv[1] || 'node')
-}
-
 export function stringifyParameters(parameters: Array<ParameterType>, parameterNames: Array<string>): Array<string> {
   const toReturn = []
   const wrappers = {
     optional: ['[', ']'],
-    required: ['[', ']'],
+    required: ['<', '>'],
   }
   for (let i = 0, length = parameters.length; i < length; i++) {
     const fullType = parameters[i]
