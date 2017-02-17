@@ -19,8 +19,8 @@ class Command {
     this.descriptionText = ''
     this.defaultCallback = null
 
-    this.option('--help', 'Print usage information')
-    this.option('--version', 'Print version information')
+    // this.option('--help', 'Print usage information')
+    // this.option('--version', 'Print version information')
   }
   default(callback: (() => void)): this {
     invariant(typeof callback === 'function', 'default callback must be a function')
@@ -42,11 +42,11 @@ class Command {
     invariant(typeof description === 'string', 'description must be a string')
     invariant(!callback || typeof callback === 'function', 'callback must be a function')
 
-    const { command, parameters, parameterNames } = Helpers.parseCommand(givenCommand)
-    if (this.commands.find(i => i.command.join('.') === command.join('.'))) {
-      throw new Error(`parts of command '${givenCommand}' are already registered`)
+    const { name, command, parameters } = Helpers.parseCommand(givenCommand)
+    if (this.commands.find(i => i.name === name)) {
+      throw new Error(`Command '${name}' is already registered`)
     }
-    this.commands.push({ command, parameters, parameterNames, description, callback })
+    this.commands.push({ name, command, parameters, description, callback })
     return this
   }
   option(option: string, description: string, ...defaultValues: Array<any>): this {
