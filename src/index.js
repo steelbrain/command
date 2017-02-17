@@ -10,6 +10,7 @@ class Command {
   options: Array<Option>;
   commands: Array<CommandType>;
   appVersion: string;
+  lastCommand: ?string;
   descriptionText: ?string;
   defaultCallback: ?Function;
   constructor() {
@@ -46,6 +47,7 @@ class Command {
     if (this.commands.find(i => i.name === name)) {
       throw new Error(`Command '${name}' is already registered`)
     }
+    this.lastCommand = name
     this.commands.push({ name, command, parameters, description, callback })
     return this
   }
@@ -53,11 +55,11 @@ class Command {
     invariant(typeof option === 'string', 'option must be a string')
     invariant(typeof description === 'string', 'description must be a string')
 
-    const { aliases, parameters, parameterNames } = Helpers.parseOption(option)
+    const { aliases, parameters } = Helpers.parseOption(option)
     if (this.options.find(i => i.aliases.find(j => aliases.indexOf(j) !== -1))) {
       throw new Error(`parts of option '${option}' are already registered`)
     }
-    this.options.push({ aliases, parameters, parameterNames, description, defaultValues })
+    this.options.push({ aliases, parameters, description, defaultValues, command: this.lastCommand })
     return this
   }
   parse(argv: Array<string>, soft: boolean = false): ?{

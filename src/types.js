@@ -6,6 +6,7 @@ export type Parameter = {
 }
 
 export type Option = {
+  command: ?string,
   aliases: Array<string>,
   parameters: Array<Parameter>,
   description: string,

@@ -127,7 +127,6 @@ export function parseOption(option: string): { aliases: Array<string>, parameter
   }
 }
 
-
 function something() {
   const option = {
     getOption(options: Array<Option>, givenName: string): Object {
