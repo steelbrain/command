@@ -19,8 +19,8 @@ class Command {
     this.descriptionText = ''
     this.defaultCallback = null
 
-    // this.option('--help', 'Print usage information')
-    // this.option('--version', 'Print version information')
+    this.option('--help', 'Print usage information')
+    this.option('--version', 'Print version information')
   }
   default(callback: (() => void)): this {
     invariant(typeof callback === 'function', 'default callback must be a function')

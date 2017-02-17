@@ -5,7 +5,12 @@ export type Parameter = {
   name: string,
 }
 
-export type Option = { aliases: Array<string>, parameters: Array<ParameterType>, parameterNames: Array<string>, description: string, defaultValues: Array<any> }
+export type Option = {
+  aliases: Array<string>,
+  parameters: Array<Parameter>,
+  description: string,
+  defaultValues: Array<any>
+}
 
 export type Command = {
   name: string,

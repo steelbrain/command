@@ -10,7 +10,7 @@ export function getDisplayName(argv: Array<string>): string {
 
 export const DELIMETER = /,\s+|,|\s+/
 // ^ command with space or comma or space
-export const PARAM_NAME = /^\-\-(.*)|\-(.*)$/
+export const OPTION_NAME = /^\-\-(.*)|\-(.*)$/
 export const PARAM_STRING_REQUIRED = /^<(\S+)>$/
 export const PARAM_STRING_OPTIONAL = /^\[(\S+)\]$/
 export const PARAM_STRING_REQUIRED_VARIADIC = /^<(\S+) *\.\.\.>$/
@@ -47,11 +47,25 @@ export function stringifyParameters(parameters: Array<Parameter>): Array<string>
   })
 }
 
+export function validateParameterPosition(parameter: Parameter, index: number, parameters: Array<Parameter>, chunks: Array<string>, prefix: string): void {
+  if (parameter.type.startsWith('required')) {
+    const previousOptional = parameters.filter(i => i.type.startsWith('optional'))
+    if (previousOptional.length) {
+      throw new Error(`${prefix} because required parameter cannot appear after optional`)
+    }
+  }
+  if (parameter.type.endsWith('variadic')) {
+    if (index !== chunks.length - 1) {
+      throw new Error(`${prefix} because variadic must only appear at the end`)
+    }
+  }
+}
+
 export function parseCommand(given: string): { name: string, command: Array<string>, parameters: Array<Parameter> } {
   let name
   const chunks = given.trim().split(DELIMETER)
   const parameters = []
-  const errorMessage = `command '${given}' is invalid`
+  const errorMessage = `Command '${given}' is invalid`
 
   chunks.forEach(function(chunk, index) {
     if (index === 0) {
@@ -62,17 +76,7 @@ export function parseCommand(given: string): { name: string, command: Array<stri
     if (!parsed) {
       throw new Error(errorMessage)
     }
-    if (parsed.type.startsWith('required')) {
-      const previousOptional = parameters.filter(i => i.type.startsWith('optional'))
-      if (previousOptional.length) {
-        throw new Error(`${errorMessage} because required parameter cannot appear after optional`)
-      }
-    }
-    if (parsed.type.endsWith('variadic')) {
-      if (index !== chunks.length - 1) {
-        throw new Error(`${errorMessage} because variadic should only appear at the end`)
-      }
-    }
+    validateParameterPosition(parsed, index, parameters, chunks, errorMessage)
     parameters.push(parsed)
   })
   if (!name) {
@@ -86,60 +90,45 @@ export function parseCommand(given: string): { name: string, command: Array<stri
   }
 }
 
+export function parseOption(option: string): { aliases: Array<string>, parameters: Array<Parameter> } {
+  const chunks = option.trim().split(DELIMETER)
+  const aliases = []
+  const parameters = []
+  const errorMessage = `Option '${option}' is invalid`
+  let processingAliases = true
 
-function something() {
-  function parseOption(option: string): { aliases: Array<string>, parameters: Array<ParameterType>, parameterNames: Array<string> } {
-    let aliasesDone = false
-    const chunks = option.split(DELIMETER).filter(i => i)
-    const aliases = []
-    const parameters = []
-    const parameterNames = []
-    const errorMessage = `option '${option}' is invalid`
-
-    for (let i = 0, length = chunks.length; i < length; i++) {
-      const chunk = chunks[i].trim()
-      if (!aliasesDone) {
-        if (OPTION_NAME.test(chunk)) {
-          const matched = OPTION_NAME.exec(chunk)
-          aliases.push(matched[1] || matched[2])
-        } else {
-          aliasesDone = true
-        }
+  chunks.forEach(function(chunk, index) {
+    if (OPTION_NAME.test(chunk)) {
+      if (!processingAliases) {
+        throw new Error(`${errorMessage} because aliases must not appear after options`)
       }
-
-      if (aliasesDone) {
-        const parameterInfo = getParameterType(chunk)
-        if (parameterInfo) {
-          if (!validateParameterPosition(parameterInfo.type, parameters[parameters.length - 1])) {
-            throw new Error(`${errorMessage} because required parameter cannot appear after optional`)
-          }
-          parameters.push(parameterInfo.type)
-          parameterNames.push(parameterInfo.name)
-        } else throw new Error(errorMessage)
-      }
+      const matched = OPTION_NAME.exec(chunk)
+      aliases.push(matched[1] || matched[2])
+      return
     }
-    if (!aliases.length) {
+    if (processingAliases) {
+      processingAliases = false
+    }
+    const parsed = parseParameter(chunk)
+    if (!parsed) {
       throw new Error(errorMessage)
     }
-    if (!validateVariadic(parameters)) {
-      throw new Error(`${errorMessage} because variadic should only appear at the end`)
-    }
+    validateParameterPosition(parsed, index, parameters, chunks, errorMessage)
+    parameters.push(parsed)
+  })
 
-    console.log(aliases, parameters, parameterNames)
-    return {
-      aliases,
-      parameters: parameters.length ? parameters : ['bool'],
-      parameterNames,
-    }
+  if (!aliases.length) {
+    throw new Error(errorMessage)
   }
 
-  function assertStringArray(array: Array<string>, displayName: string): void {
-    invariant(Array.isArray(array), `${displayName} must be an Array`)
-    for (let i = 0, length = array.length; i < length; i++) {
-      invariant(typeof array[i] === 'string', `${displayName}[${i}] must be a string`)
-    }
+  return {
+    aliases,
+    parameters,
   }
+}
 
+
+function something() {
   const option = {
     getOption(options: Array<Option>, givenName: string): Object {
       const matched = OPTION_NAME.exec(givenName)
