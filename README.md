@@ -15,6 +15,8 @@ There are several types of parameters
 
 To add nested commands, simply join them with dot. For example for `remote add` use `remote.add` as the command name.
 
+To add configs specific to certain commands, do the `.option()` call after *that* particular `.command()` call. If you want your configs to be global, add them before adding any other command.
+
 ### Example
 
 ```js
@@ -23,18 +25,19 @@ const command = require('sb-command')
 command
   .version('0.0.1')
   .description('Git Versonal Control System')
+  .option('--disable-cache', 'Disable Git Cache')
   .command('init', 'Initialize an empty repo', function(options) {
     console.log('git-init')
   })
+  .option('--shallow-copy', 'Initialize with shallow copy')
   .command('add [file]', 'Add file contents to index', function(options, file) {
     console.log('git-add', files)
   })
-  .option('-v, --verbose', 'Enable verbosity', false)
-  .option('-c, --config <key> <value>', 'Config')
+  .option('--dry-run', 'Try to stage the file into git index but dont actually do it')
   .default(function(options, ...commands) {
     console.log(options, commands)
   })
-  .parse(process.argv)
+  .process()
 
 ```
 
@@ -46,14 +49,9 @@ export class Command {
   version(version: string): this
   description(descriptionText: string): this
   command(commandName: string, description: string, callback: ?Function): this
-  option(option: string, description: string, ...defaultValues): this
-  parse(argv: Array<string>, soft: boolean = false): ?{
-    options: Object,
-    callback: ?Function,
-    parameters: Array<string>,
-    errorMessage: ?string,
-  }
-  showHelp(soft: boolean = false): string
+  option(option: string, description: string, defaultValue: any = null): this
+  process(argv: Array<string> = process.argv): Promise<any>
+  showHelp(): string
 }
 export default new command
 ```
