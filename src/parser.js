@@ -13,6 +13,13 @@ function getOptionByAlias(options: Array<Option>, alias: string): Option {
   throw new Error(`Option ${alias} is not recognized`)
 }
 
+function generateError(message: string, parameters: Array<any>): Error {
+  const error = new Error(message)
+  // $FlowIgnore: Custom prop
+  error.parameters = parameters
+  return error
+}
+
 export default function parse(given: Array<string>, commands: Array<Command>, options: Array<Option>): {
   options: Array<OptionEntry>,
   command: ?Command,
@@ -33,7 +40,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     if (chunk.startsWith('-')) {
       if (lastOption) {
         if (lastOption.option.parameter && !lastOption.value) {
-          throw new Error(`Option ${chunk} expects a value`)
+          throw generateError(`Option ${chunk} expects a value`, rawParameters)
         }
         parsedOptions.push(lastOption)
         lastOption = null
@@ -71,12 +78,6 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       }
     }
   }
-  if (lastOption) {
-    if (lastOption.option.parameter && !lastOption.value) {
-      throw new Error(`Option ${lastOption.name} expects a value`)
-    }
-    parsedOptions.push(lastOption)
-  }
 
   let command = null
   for (let i = rawParameters.length; i--;) {
@@ -86,6 +87,13 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       parsedParameters.unshift(...rawParameters.slice(i + 1))
       break
     }
+  }
+
+  if (lastOption) {
+    if (lastOption.option.parameter && !lastOption.value) {
+      throw generateError(`Option ${lastOption.name} expects a value`, rawParameters)
+    }
+    parsedOptions.push(lastOption)
   }
 
   if (command) {
@@ -107,9 +115,9 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       }
     }
     if (notEnough) {
-      throw new Error(`Not enough parameters for command: ${command.name.split('.').join(' ')}`)
+      throw generateError(`Not enough parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
     } else if (availableParameters.length) {
-      throw new Error(`Too many parameters for command: ${command.name.split('.').join(' ')}`)
+      throw generateError(`Too many parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
     }
   } else parsedParameters.unshift(...rawParameters)
 

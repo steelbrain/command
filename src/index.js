@@ -5,7 +5,7 @@ import invariant from 'assert'
 import camelCase from 'camelcase'
 import parseArgv from './parser'
 import * as Helpers from './helpers'
-import type { Command as CommandType, Option, OptionEntry } from './types'
+import type { Command as CommandType, Option } from './types'
 
 class Command {
   options: Array<Option>;
@@ -18,7 +18,7 @@ class Command {
     this.options = []
     this.commands = []
     this.appVersion = ''
-    this.lastCommand = ''
+    this.lastCommand = null
     this.descriptionText = ''
     this.defaultCallback = null
 
@@ -80,43 +80,90 @@ class Command {
     })
     return { options: mergedOptions, command, parameters }
   }
-  showHelp(givenDisplayName: ?string = null, soft: boolean = false): string {
-    const displayName = givenDisplayName || Helpers.getDisplayName(process.argv)
-    const chunks = [
-      `Usage: ${displayName}${this.commands.length ? ' [command...]' : ''}${this.options.length ? ' [options]' : ''}`,
+  process(argv: Array<string> = process.argv): Promise<void> {
+    let result
+    try {
+      result = this.parseArgv(argv)
+    } catch (error) {
+      console.log('Error:', error.message)
+      this.showHelp(argv, error.parameters || [])
+      process.exit(1)
+      return Promise.resolve()
+      // ^ Necessary for flow
+    }
+    const { options, command, parameters } = result
+    if (options.version) {
+      console.log(this.appVersion)
+      process.exit(0)
+    } else if (options.help) {
+      this.showHelp(argv, parameters)
+      process.exit(0)
+    } else if (!parameters.length && this.defaultCallback) {
+      // $FlowIgnore: We validate that defaultCallback is not null here flow don't worry
+      return new Promise(resolve => this.defaultCallback(resolve))
+    } else if (!command || !command.callback) {
+      if (parameters.length) {
+        console.log('Error: Invalid subcommand', parameters[0])
+      }
+      this.showHelp(argv, parameters)
+      process.exit(1)
+      return Promise.resolve()
+      // ^ Necessary for flow
+    }
+    return new Promise(function(resolve) {
+      // $FlowIgnore: Command is not null here, flow thinks otherwise
+      resolve(command.callback.apply(command, parameters))
+    })
+  }
+  generateHelp(argv: Array<string> = process.argv, parameters: Array<any> = []): string {
+    let chunks = [
+      `Usage: ${Helpers.getDisplayName(argv)}${this.commands.length ? ' [command...]' : ''}${this.options.length ? ' [options]' : ''}`,
     ]
     if (this.descriptionText) {
       chunks.push('')
       chunks.push(this.descriptionText)
     }
-    if (this.options) {
+
+    function appendOptions(options: Array<Option>) {
+      chunks = chunks.concat(cliff.stringifyRows(options.map(function(option: Option) {
+        const aliases = Helpers.sortAliases(option.aliases)
+        const params = Helpers.stringifyParameters(option.parameter ? [option.parameter] : [])
+        return ['  ', aliases.join(', '), '  ', params.join(' '), '  ', option.description]
+      })))
+    }
+
+    if (this.options.length) {
       chunks.push('')
-      chunks.push('Options:')
-      const rows = []
-      for (let i = 0, length = this.options.length; i < length; i++) {
-        const option = this.options[i]
-        const aliases = Helpers.sortOptionAliases(option.aliases.slice()).map(a => (a.length === 1 ? `-${a}` : `--${a}`))
-        const parameters = Helpers.stringifyParameters(option.parameters, option.parameterNames)
-        rows.push(['  ', aliases.join(', '), '  ', parameters.join(' '), '  ', option.description])
-      }
-      chunks.push(cliff.stringifyRows(rows))
+      chunks.push('Global Options:')
+      appendOptions(this.options.filter(o => o.command === null))
     }
-    if (this.commands) {
+
+    const closestCommand = Helpers.getClosestCommand(this.commands, parameters)
+    if (closestCommand) {
+      const commandOptions = this.options.filter(o => o.command === closestCommand.name)
+      if (commandOptions.length) {
+        chunks.push('')
+        chunks.push('Command Options:')
+        appendOptions(commandOptions)
+      }
+    }
+
+    let subCommands = this.commands
+    if (closestCommand) {
+      subCommands = subCommands.filter(c => c.name.startsWith(closestCommand.name) && c.name !== closestCommand.name)
+    }
+    if (subCommands.length) {
       chunks.push('')
-      chunks.push('Commands:')
-      const rows = []
-      for (let i = 0, length = this.commands.length; i < length; i++) {
-        const entry = this.commands[i]
-        const parameters = Helpers.stringifyParameters(entry.parameters, entry.parameterNames)
-        rows.push(['  ', entry.command.join(' '), '  ', parameters, '  ', entry.description])
-      }
-      chunks.push(cliff.stringifyRows(rows))
+      chunks.push(`${closestCommand ? 'Subc' : 'C'}ommands:`)
+      chunks = chunks.concat(cliff.stringifyRows(subCommands.map(function(command: CommandType) {
+        const params = Helpers.stringifyParameters(command.parameters)
+        return ['  ', command.name.split('.').join(' '), '  ', params.join(' '), '  ', command.description]
+      })))
     }
-    const helpText = chunks.join('\n')
-    if (!soft) {
-      console.log(helpText)
-    }
-    return helpText
+    return chunks.join('\n')
+  }
+  showHelp(argv: Array<string> = process.argv, parameters: Array<any> = []): void {
+    console.log(this.generateHelp(argv, parameters))
   }
 }
 

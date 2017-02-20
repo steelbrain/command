@@ -1,7 +1,7 @@
 /* @flow */
 
 import Path from 'path'
-import type { Parameter } from './types'
+import type { Parameter, Command } from './types'
 
 export function getDisplayName(argv: Array<string>): string {
   return Path.basename(argv[1] || 'node')
@@ -130,4 +130,40 @@ export function parseOption(option: string): { aliases: Array<string>, parameter
     aliases,
     parameter: parameter || null,
   }
+}
+
+export function sortAliases(aliases: Array<string>): Array<string> {
+  return aliases.slice().sort(function(a, b) {
+    const startPointA = a.substr(0, 2) === '--' ? 2 : 1
+    const startPointB = b.substr(0, 2) === '--' ? 2 : 1
+    if (startPointA < startPointB) {
+      return -1
+    } else if (startPointA > startPointB) {
+      return 1
+    }
+    const lengthA = a.length
+    const lengthB = b.length
+    if (lengthA > lengthB) {
+      return -1
+    } else if (lengthA < lengthB) {
+      return 1
+    }
+    return 0
+  })
+}
+
+export function getClosestCommand(commands: Array<Command>, chunks: Array<string>): ?Command {
+  let closestCommand = null
+  const sortedCommands = commands.slice().sort((a, b) => a.name.length - b.name.length)
+  for (let i = 0, length = sortedCommands.length; i < length; i++) {
+    const currentCommand = sortedCommands[i]
+    for (let j = chunks.length; j--;) {
+      const currentName = chunks.slice(0, j + 1).join('.')
+      if (currentName === currentCommand.name) {
+        closestCommand = currentCommand
+        break
+      }
+    }
+  }
+  return closestCommand
 }
