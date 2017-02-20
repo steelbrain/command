@@ -101,7 +101,7 @@ class Command {
       process.exit(0)
     } else if (!parameters.length && this.defaultCallback) {
       // $FlowIgnore: We validate that defaultCallback is not null here flow don't worry
-      return new Promise(resolve => this.defaultCallback(resolve))
+      return new Promise(resolve => resolve(this.defaultCallback(options, parameters)))
     } else if (!command || !command.callback) {
       if (parameters.length) {
         console.log('Error: Invalid subcommand', parameters[0])

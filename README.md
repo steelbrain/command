@@ -34,8 +34,8 @@ command
     console.log('git-add', files)
   })
   .option('--dry-run', 'Try to stage the file into git index but dont actually do it')
-  .default(function(options, ...commands) {
-    console.log(options, commands)
+  .default(function(options, parameters) {
+    console.log(options, parameters)
   })
   .process()
 
