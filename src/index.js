@@ -151,8 +151,12 @@ class Command {
 
     let subCommands = this.commands
     if (closestCommand) {
+      const closestCommandParams = Helpers.stringifyParameters(closestCommand.parameters)
       subCommands = subCommands.filter(c => c.name.startsWith(closestCommand.name) && c.name !== closestCommand.name)
-      chunks[0] = `Usage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${subCommands.length ? ' [subcommand...]' : ''}${this.options.length ? ' [options]' : ''}`
+      chunks[0] = `Usage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${closestCommandParams ? ` ${closestCommandParams.join(' ')}` : ''}${this.options.length ? ' [options]' : ''}`
+      if (subCommands.length) {
+        chunks[0] += `\nUsage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${subCommands.length ? ' [subcommand...]' : ''}${this.options.length ? ' [options]' : ''}`
+      }
     }
     if (subCommands.length) {
       chunks.push('')
