@@ -80,6 +80,13 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     }
   }
 
+  if (lastOption) {
+    if (lastOption.option.parameter && !lastOption.value) {
+      throw generateError(`Option ${lastOption.name} expects a value`, rawParameters)
+    }
+    parsedOptions.push(lastOption)
+  }
+
   let command = null
   for (let i = rawParameters.length; i--;) {
     const currentName = rawParameters.slice(0, i + 1).join('.')
@@ -90,25 +97,18 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     }
   }
 
-  if (lastOption) {
-    if (lastOption.option.parameter && !lastOption.value) {
-      throw generateError(`Option ${lastOption.name} expects a value`, rawParameters)
-    }
-    parsedOptions.push(lastOption)
-  }
-
   if (command) {
     let notEnough = false
     const availableParameters = parsedParameters.slice()
     parsedParameters = []
     for (let i = 0, length = command.parameters.length; i < length; i++) {
       const parameter = command.parameters[i]
-      const value = availableParameters.pop()
+      const value = availableParameters.shift()
       if (!value && parameter.type.startsWith('required')) {
         notEnough = true
         break
       } else if (parameter.type.endsWith('variadic')) {
-        parsedParameters.push(availableParameters.slice())
+        parsedParameters.push([value].concat(availableParameters.slice()))
         availableParameters.length = 0
         break
       } else if (value) {

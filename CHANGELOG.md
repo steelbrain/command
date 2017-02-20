@@ -1,6 +1,8 @@
 ### 2.0.1
 
 - Fix a bug where options would not be passed to callbacks correctly
+- Fix a bug where parameters would be parsed in incorrect order for variadic
+- Fix a bug where one value would be missed when command is found for variadic
 
 ### 2.0.0
 
