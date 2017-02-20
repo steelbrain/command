@@ -1,9 +1,9 @@
 /* @flow */
 
-import type { Command, Option, OptionEntry } from '../types'
+import type { Command, Option, OptionEntry } from './types'
 
 const OPTION_SHORT_MULTI = /^-([a-z0-9]{2,})$/i
-const OPTION_COMPRESSED = /^(--[a-z0-9]+)=(.+)$|^(-[a-z0-9]+)=(.+)$/i
+const OPTION_COMPRESSED = /^(--[a-z0-9-]+)=(.+)$|^(-[a-z0-9]+)=(.+)$/i
 
 function getOptionByAlias(options: Array<Option>, alias: string): Option {
   const foundOption = options.find(option => option.aliases.indexOf(alias) !== -1)
@@ -127,7 +127,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       parsedOptions.push({
         option,
         name: '',
-        value: option.defaultValue,
+        value: option.parameter ? option.defaultValue : false,
       })
     }
   })

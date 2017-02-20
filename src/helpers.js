@@ -9,7 +9,7 @@ export function getDisplayName(argv: Array<string>): string {
 
 export const DELIMETER = /,\s+|,|\s+/
 // ^ command with space or comma or space
-export const OPTION_NAME = /^(--[a-z0-9]+)$|^(-[a-z0-9]+)$/i
+export const OPTION_NAME = /^(--[a-z0-9-]+)$|^(-[a-z0-9]+)$/i
 // ^ Include - or -- in captured to distinguish between two
 export const PARAM_STRING_REQUIRED = /^<(\S+)>$/
 export const PARAM_STRING_OPTIONAL = /^\[(\S+)\]$/

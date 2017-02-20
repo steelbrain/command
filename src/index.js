@@ -65,11 +65,20 @@ class Command {
     return this
   }
   parseArgv(given: Array<string>): {
-    options: Array<OptionEntry>,
+    options: Object,
     command: ?CommandType,
     parameters: Array<string>,
   } {
-    return parseArgv(given, this.commands, this.options)
+    const { options, command, parameters } = parseArgv(given, this.commands, this.options)
+    const mergedOptions = {}
+    options.forEach(function(entry) {
+      entry.option.aliases.forEach(function(givenAlias) {
+        const alias = givenAlias.slice(givenAlias.slice(0, 2) === '--' ? 2 : 1)
+        mergedOptions[alias] = entry.value
+        mergedOptions[camelCase(alias)] = entry.value
+      })
+    })
+    return { options: mergedOptions, command, parameters }
   }
   showHelp(givenDisplayName: ?string = null, soft: boolean = false): string {
     const displayName = givenDisplayName || Helpers.getDisplayName(process.argv)
