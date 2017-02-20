@@ -1,214 +1,169 @@
 /* @flow */
 
 import Path from 'path'
-import invariant from 'assert'
-import type { Option, ParameterType } from './types'
-
-export const DELIMETER = /,\s+|,|\s+/
-export const OPTION_NAME = /^\-\-(.*)|\-(.*)$/
-export const OPTION_STRING_REQUIRED = /^<(\S+)>$/
-export const OPTION_STRING_OPTIONAL = /^\[(\S+)\]$/
-export const OPTION_STRING_REQUIRED_VARIADIC = /^<(\S+) *\.\.\.>$/
-export const OPTION_STRING_OPTIONAL_VARIADIC = /^\[(\S+) *\.\.\.\]$/
-
-export function getParameterType(chunk: string): ?{ type: ParameterType, name: string } {
-  let name
-  switch (true) {
-    case OPTION_STRING_REQUIRED.test(chunk):
-      name = OPTION_STRING_REQUIRED.exec(chunk)[1]
-      return { type: 'required-string', name }
-    case OPTION_STRING_OPTIONAL.test(chunk):
-      name = OPTION_STRING_OPTIONAL.exec(chunk)[1]
-      return { type: 'optional-string', name }
-    case OPTION_STRING_REQUIRED_VARIADIC.test(chunk):
-      name = OPTION_STRING_REQUIRED_VARIADIC.exec(chunk)[1]
-      return { type: 'required-string-variadic', name }
-    case OPTION_STRING_OPTIONAL_VARIADIC.test(chunk):
-      name = OPTION_STRING_OPTIONAL_VARIADIC.exec(chunk)[1]
-      return { type: 'optional-string-variadic', name }
-    default:
-      return null
-  }
-}
+import type { Parameter, Command } from './types'
 
 export function getDisplayName(argv: Array<string>): string {
   return Path.basename(argv[1] || 'node')
 }
 
-export function stringifyParameters(parameters: Array<ParameterType>, parameterNames: Array<string>): Array<string> {
-  const toReturn = []
-  const wrappers = {
-    optional: ['[', ']'],
-    required: ['[', ']'],
+export const DELIMETER = /,\s+|,|\s+/
+// ^ command with space or comma or space
+export const OPTION_NAME = /^(--[a-z0-9-]+)$|^(-[a-z0-9]+)$/i
+// ^ Include - or -- in captured to distinguish between two
+export const PARAM_STRING_REQUIRED = /^<(\S+)>$/
+export const PARAM_STRING_OPTIONAL = /^\[(\S+)\]$/
+export const PARAM_STRING_REQUIRED_VARIADIC = /^<(\S+) *\.\.\.>$/
+export const PARAM_STRING_OPTIONAL_VARIADIC = /^\[(\S+) *\.\.\.\]$/
+
+export function parseParameter(chunk: string): ?Parameter {
+  let name
+  switch (true) {
+    case PARAM_STRING_REQUIRED_VARIADIC.test(chunk):
+      name = PARAM_STRING_REQUIRED_VARIADIC.exec(chunk)[1]
+      return { type: 'required-variadic', name }
+    case PARAM_STRING_REQUIRED.test(chunk):
+      name = PARAM_STRING_REQUIRED.exec(chunk)[1]
+      return { type: 'required', name }
+    case PARAM_STRING_OPTIONAL_VARIADIC.test(chunk):
+      name = PARAM_STRING_OPTIONAL_VARIADIC.exec(chunk)[1]
+      return { type: 'optional-variadic', name }
+    case PARAM_STRING_OPTIONAL.test(chunk):
+      name = PARAM_STRING_OPTIONAL.exec(chunk)[1]
+      return { type: 'optional', name }
+    default:
+      return null
   }
-  for (let i = 0, length = parameters.length; i < length; i++) {
-    const fullType = parameters[i]
-    if (fullType === 'bool') continue
-    const type = parameters[i].slice(0, 8) === 'optional' ? 'optional' : 'required'
-    toReturn.push(`${wrappers[type][0]}${parameterNames[i]}${wrappers[type][1]}`)
-  }
-  return toReturn
 }
 
-export function sortOptionAliases(aliases: Array<string>): Array<string> {
-  return aliases.sort(function(a, b) {
-    if (a.length < b.length) {
-      return -1
+export function stringifyParameters(parameters: Array<Parameter>): Array<string> {
+  const wrappers = {
+    optional: ['[', ']'],
+    required: ['<', '>'],
+  }
+  return parameters.map(function(parameter) {
+    const type = parameter.type.startsWith('optional') ? 'optional' : 'required'
+    return `${wrappers[type][0]}${parameter.name}${wrappers[type][1]}`
+  })
+}
+
+export function validateParameterPosition(parameter: Parameter, index: number, parameters: Array<Parameter>, chunks: Array<string>, prefix: string): void {
+  if (parameter.type.startsWith('required')) {
+    const previousOptional = parameters.filter(i => i.type.startsWith('optional'))
+    if (previousOptional.length) {
+      throw new Error(`${prefix} because required parameter cannot appear after optional`)
     }
-    if (a.length > b.length) {
+  }
+  if (parameter.type.endsWith('variadic')) {
+    if (index !== chunks.length - 1) {
+      throw new Error(`${prefix} because variadic must only appear at the end`)
+    }
+  }
+}
+
+export function parseCommand(given: string): { name: string, parameters: Array<Parameter> } {
+  let name
+  const chunks = given.trim().split(DELIMETER)
+  const parameters = []
+  const errorMessage = `Command '${given}' is invalid`
+
+  chunks.forEach(function(chunk, index) {
+    if (index === 0) {
+      name = chunk
+      return
+    }
+    const parsed = parseParameter(chunk)
+    if (!parsed) {
+      throw new Error(errorMessage)
+    }
+    validateParameterPosition(parsed, index, parameters, chunks, errorMessage)
+    parameters.push(parsed)
+  })
+  if (!name) {
+    throw new Error(errorMessage)
+  }
+
+  return {
+    name,
+    parameters,
+  }
+}
+
+// NOTE: Stores - or -- in the aliases
+export function parseOption(option: string): { aliases: Array<string>, parameter: ?Parameter } {
+  const chunks = option.trim().split(DELIMETER)
+  const aliases = []
+  const errorMessage = `Option '${option}' is invalid`
+  let parameter
+  let processingAliases = true
+
+  chunks.forEach(function(chunk) {
+    if (OPTION_NAME.test(chunk)) {
+      if (!processingAliases) {
+        throw new Error(`${errorMessage} because aliases must not appear after options`)
+      }
+      const matched = OPTION_NAME.exec(chunk)
+      aliases.push(matched[1] || matched[2])
+      return
+    }
+    if (processingAliases) {
+      processingAliases = false
+    }
+    const parsed = parseParameter(chunk)
+    if (!parsed) {
+      throw new Error(errorMessage)
+    }
+    if (parsed.type.endsWith('variadic')) {
+      throw new Error(`${errorMessage} because an option must not have variadic parameters`)
+    }
+    if (parameter) {
+      throw new Error(`${errorMessage} because an option must not have more than one parameter`)
+    }
+    parameter = parsed
+  })
+
+  if (!aliases.length) {
+    throw new Error(errorMessage)
+  }
+
+  return {
+    aliases,
+    parameter: parameter || null,
+  }
+}
+
+export function sortAliases(aliases: Array<string>): Array<string> {
+  return aliases.slice().sort(function(a, b) {
+    const startPointA = a.substr(0, 2) === '--' ? 2 : 1
+    const startPointB = b.substr(0, 2) === '--' ? 2 : 1
+    if (startPointA < startPointB) {
+      return -1
+    } else if (startPointA > startPointB) {
+      return 1
+    }
+    const lengthA = a.length
+    const lengthB = b.length
+    if (lengthA > lengthB) {
+      return -1
+    } else if (lengthA < lengthB) {
       return 1
     }
     return 0
   })
 }
 
-export function validateVariadic(parameters: Array<ParameterType>): boolean {
-  for (let i = 0, length = parameters.length; i < length; i++) {
-    if (parameters[i] === 'required-string-variadic' || parameters[i] === 'optional-string-variadic') {
-      if (i !== length) {
-        return false
+export function getClosestCommand(commands: Array<Command>, chunks: Array<string>): ?Command {
+  let closestCommand = null
+  const sortedCommands = commands.slice().sort((a, b) => a.name.length - b.name.length)
+  for (let i = 0, length = sortedCommands.length; i < length; i++) {
+    const currentCommand = sortedCommands[i]
+    for (let j = chunks.length; j--;) {
+      const currentName = chunks.slice(0, j + 1).join('.')
+      if (currentName === currentCommand.name) {
+        closestCommand = currentCommand
+        break
       }
     }
   }
-  return true
-}
-export function validateParameterPosition(current: ParameterType, last: ParameterType): boolean {
-  return !(~current.indexOf('required') && last && ~last.indexOf('optional'))
-}
-
-export function parseCommand(givenCommand: string): { command: Array<string>, parameters: Array<ParameterType>, parameterNames: Array<string> } {
-  let command = []
-  const chunks = givenCommand.split(DELIMETER).filter(i => i)
-  const parameters = []
-  const parameterNames = []
-  const errorMessage = `command '${givenCommand}' is invalid`
-
-  for (let i = 0, length = chunks.length; i < length; i++) {
-    const chunk = chunks[i].trim()
-    if (i === 0) {
-      // First is always command
-      command = command.concat(chunk.split('.').filter(j => j))
-    } else {
-      const parameterInfo = getParameterType(chunk)
-      if (parameterInfo) {
-        if (!validateParameterPosition(parameterInfo.type, parameters[parameters.length - 1])) {
-          throw new Error(`${errorMessage} because required parameter cannot appear after optional`)
-        }
-        parameters.push(parameterInfo.type)
-        parameterNames.push(parameterInfo.name)
-      } else throw new Error(errorMessage)
-    }
-  }
-  if (!command.length) {
-    throw new Error(errorMessage)
-  }
-  if (!validateVariadic(parameters)) {
-    throw new Error(`${errorMessage} because variadic should only appear at the end`)
-  }
-
-  return {
-    command,
-    parameters,
-    parameterNames,
-  }
-}
-
-export function parseOption(option: string): { aliases: Array<string>, parameters: Array<ParameterType>, parameterNames: Array<string> } {
-  let aliasesDone = false
-  const chunks = option.split(DELIMETER).filter(i => i)
-  const aliases = []
-  const parameters = []
-  const parameterNames = []
-  const errorMessage = `option '${option}' is invalid`
-
-  for (let i = 0, length = chunks.length; i < length; i++) {
-    const chunk = chunks[i].trim()
-    if (!aliasesDone) {
-      if (OPTION_NAME.test(chunk)) {
-        const matched = OPTION_NAME.exec(chunk)
-        aliases.push(matched[1] || matched[2])
-      } else {
-        aliasesDone = true
-      }
-    }
-
-    if (aliasesDone) {
-      const parameterInfo = getParameterType(chunk)
-      if (parameterInfo) {
-        if (!validateParameterPosition(parameterInfo.type, parameters[parameters.length - 1])) {
-          throw new Error(`${errorMessage} because required parameter cannot appear after optional`)
-        }
-        parameters.push(parameterInfo.type)
-        parameterNames.push(parameterInfo.name)
-      } else throw new Error(errorMessage)
-    }
-  }
-  if (!aliases.length) {
-    throw new Error(errorMessage)
-  }
-  if (!validateVariadic(parameters)) {
-    throw new Error(`${errorMessage} because variadic should only appear at the end`)
-  }
-
-  return {
-    aliases,
-    parameters: parameters.length ? parameters : ['bool'],
-    parameterNames,
-  }
-}
-
-export function assertStringArray(array: Array<string>, displayName: string): void {
-  invariant(Array.isArray(array), `${displayName} must be an Array`)
-  for (let i = 0, length = array.length; i < length; i++) {
-    invariant(typeof array[i] === 'string', `${displayName}[${i}] must be a string`)
-  }
-}
-
-export const option = {
-  getOption(options: Array<Option>, givenName: string): Object {
-    const matched = OPTION_NAME.exec(givenName)
-    const name = matched[1] || matched[2]
-    const found = options.find(entry => entry.aliases.find(i => i === name))
-    if (found) {
-      return {
-        name,
-        values: [],
-        aliases: found.aliases,
-        parameters: found.parameters,
-        defaultValues: found.defaultValues,
-      }
-    }
-    // For unknown options
-    return {
-      name,
-      values: [],
-      aliases: [name],
-      parameters: ['unknown'],
-      defaultValues: [],
-    }
-  },
-  acceptsMore(lastOption: Object): boolean {
-    if (!lastOption) {
-      return false
-    }
-    return !!(lastOption.values.length !== lastOption.parameters.length ||
-           ~lastOption.parameters[lastOption.parameters.length - 1].indexOf('variadic'))
-  },
-  requiresMore(lastOption: Object): boolean {
-    if (!lastOption) {
-      return false
-    }
-    const parameter = lastOption.parameters[0]
-    if (parameter === 'unknown' || parameter === 'bool') {
-      return false
-    }
-    return lastOption.values.length < lastOption.parameters.filter(i => ~i.indexOf('required')).length
-  },
-  singlify(parameters: Array<ParameterType>, values: Array<any>): any {
-    const parameter = parameters[0]
-    if (parameters.length === 1 && (parameter === 'bool' || !~parameter.indexOf('variadic'))) {
-      return values[0]
-    }
-    return values
-  },
+  return closestCommand
 }

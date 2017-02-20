@@ -3,6 +3,7 @@
 import cliff from 'cliff'
 import invariant from 'assert'
 import camelCase from 'camelcase'
+import parseArgv from './parser'
 import * as Helpers from './helpers'
 import type { Command as CommandType, Option } from './types'
 
@@ -10,12 +11,14 @@ class Command {
   options: Array<Option>;
   commands: Array<CommandType>;
   appVersion: string;
+  lastCommand: ?string;
   descriptionText: ?string;
   defaultCallback: ?Function;
   constructor() {
     this.options = []
     this.commands = []
     this.appVersion = ''
+    this.lastCommand = null
     this.descriptionText = ''
     this.defaultCallback = null
 
@@ -42,166 +45,131 @@ class Command {
     invariant(typeof description === 'string', 'description must be a string')
     invariant(!callback || typeof callback === 'function', 'callback must be a function')
 
-    const { command, parameters, parameterNames } = Helpers.parseCommand(givenCommand)
-    if (this.commands.find(i => i.command.join('.') === command.join('.'))) {
-      throw new Error(`parts of command '${givenCommand}' are already registered`)
+    const { name, parameters } = Helpers.parseCommand(givenCommand)
+    if (this.commands.find(i => i.name === name)) {
+      throw new Error(`Command '${name}' is already registered`)
     }
-    this.commands.push({ command, parameters, parameterNames, description, callback })
+    this.lastCommand = name
+    this.commands.push({ name, parameters, description, callback })
     return this
   }
-  option(option: string, description: string, ...defaultValues: Array<any>): this {
+  option(option: string, description: string, defaultValue: any = null): this {
     invariant(typeof option === 'string', 'option must be a string')
     invariant(typeof description === 'string', 'description must be a string')
 
-    const { aliases, parameters, parameterNames } = Helpers.parseOption(option)
+    const { aliases, parameter } = Helpers.parseOption(option)
     if (this.options.find(i => i.aliases.find(j => aliases.indexOf(j) !== -1))) {
       throw new Error(`parts of option '${option}' are already registered`)
     }
-    this.options.push({ aliases, parameters, parameterNames, description, defaultValues })
+    this.options.push({ aliases, parameter, description, defaultValue, command: this.lastCommand })
     return this
   }
-  parse(argv: Array<string>, soft: boolean = false): ?{
+  parseArgv(given: Array<string>): {
     options: Object,
-    callback: ?Function,
-    parameters: Array<string>,
-    errorMessage: ?string,
+    command: ?CommandType,
+    parameters: Array<any>,
+    rawParameters: Array<any>,
   } {
-    let lastOption = null
-    let errorMessage = null
-    const rawNonOptions = []
-    const rawOptions = []
-
-    // NOTE: This is the option and non-option extraction from argv part
-    // NOTE: We skip the first two because of the struct of process.argv
-    for (let i = 2, length = argv.length; i < length; i++) {
-      const chunk = argv[i]
-      if (chunk.slice(0, 1) === '-') {
-        if (lastOption) {
-          if (Helpers.option.requiresMore(lastOption)) {
-            errorMessage = `Invalid value for option '${lastOption.name}'`
-            break
-          }
-          rawOptions.push(lastOption)
-        }
-        lastOption = Helpers.option.getOption(this.options, chunk)
-      } else if (lastOption && Helpers.option.acceptsMore(lastOption)) {
-        lastOption.values.push(chunk)
-      } else rawNonOptions.push(chunk)
+    const { options, command, parameters, rawParameters } = parseArgv(given, this.commands, this.options)
+    const mergedOptions = {}
+    options.forEach(function(entry) {
+      entry.option.aliases.forEach(function(givenAlias) {
+        const alias = givenAlias.slice(givenAlias.slice(0, 2) === '--' ? 2 : 1)
+        mergedOptions[alias] = entry.value
+        mergedOptions[camelCase(alias)] = entry.value
+      })
+    })
+    return { options: mergedOptions, command, parameters, rawParameters }
+  }
+  process(argv: Array<string> = process.argv): Promise<void> {
+    let result
+    try {
+      result = this.parseArgv(argv)
+    } catch (error) {
+      console.log('Error:', error.message)
+      this.showHelp(argv, error.parameters || [])
+      process.exit(1)
+      return Promise.resolve()
+      // ^ Necessary for flow
     }
-    if (lastOption) {
-      if (Helpers.option.requiresMore(lastOption)) {
-        errorMessage = `Invalid value for option '${lastOption.name}'`
-      } else {
-        rawOptions.push(lastOption)
-      }
-    }
-
-    const options = {}
-    for (let i = 0, length = this.options.length; i < length; i++) {
-      const option = this.options[i]
-      for (let j = 0, jlength = option.aliases.length; j < jlength; j++) {
-        options[camelCase(option.aliases[j])] = Helpers.option.singlify(option.parameters, option.defaultValues)
-      }
-    }
-    for (let i = 0, length = rawOptions.length; i < length; i++) {
-      const option = rawOptions[i]
-      const values = option.parameters[0] === 'bool' ? [true] : option.values
-      for (let j = values.length, jlength = option.defaultValues.length; j < jlength; j++) {
-        values[j] = option.defaultValues[j]
-      }
-      for (let j = 0, jlength = option.aliases.length; j < jlength; j++) {
-        // eslint-disable-next-line no-param-reassign
-        options[camelCase(option.aliases[j])] = Helpers.option.singlify(option.parameters, values)
-      }
-    }
-
-    let commandCallback = null
-    let commandParameters = []
-
-    // When there's no extra command name or the first name of the user requested command doesn't exist
-    if (!rawNonOptions.length || !this.commands.find(c => c.command[0] === rawNonOptions[0])) {
-      commandCallback = this.defaultCallback
-      commandParameters = rawNonOptions
-    } else {
-      let closest
-      for (let i = 0, length = this.commands.length; i < length; i++) {
-        const entry = this.commands[i]
-        if (entry.command.join('.') === rawNonOptions.slice(0, entry.command.length).join('.')) {
-          if (!closest || entry.command.length > closest.command.length) {
-            closest = entry
-          }
-        }
-      }
-      if (closest) {
-        commandCallback = closest.callback
-        commandParameters = rawNonOptions.slice(closest.command.length)
-        if (commandParameters.length < closest.parameters.filter(i => ~i.indexOf('required')).length) {
-          errorMessage = `Not enough parameters for command: ${closest.command.join('.')}`
-        }
-      }
-    }
-
-    if (soft) {
-      return {
-        options,
-        callback: commandCallback,
-        parameters: commandParameters,
-        errorMessage,
-      }
-    }
-
-    if (errorMessage) {
-      console.log(`Error: ${errorMessage}`)
-    }
-    if (!errorMessage && options.version) {
+    const { options, command, parameters, rawParameters } = result
+    if (options.version) {
       console.log(this.appVersion)
       process.exit(0)
-    }
-    if (errorMessage || options.help || !commandCallback) {
-      this.showHelp(Helpers.getDisplayName(argv))
+    } else if (options.help) {
+      this.showHelp(argv, rawParameters)
+      process.exit(0)
+    } else if (!parameters.length && this.defaultCallback) {
+      // $FlowIgnore: We validate that defaultCallback is not null here flow don't worry
+      return new Promise(resolve => resolve(this.defaultCallback(options, parameters)))
+    } else if (!command || !command.callback) {
+      if (parameters.length) {
+        console.log('Error: Invalid subcommand', parameters[0])
+      }
+      this.showHelp(argv, rawParameters)
       process.exit(1)
-    } else {
-      commandCallback.apply(null, [options].concat(commandParameters))
+      return Promise.resolve()
+      // ^ Necessary for flow
     }
-    return null
+    return new Promise(function(resolve) {
+      // $FlowIgnore: Command is not null here, flow thinks otherwise
+      resolve(command.callback.apply(command, parameters))
+    })
   }
-  showHelp(givenDisplayName: ?string = null, soft: boolean = false): string {
-    const displayName = givenDisplayName || Helpers.getDisplayName(process.argv)
-    const chunks = [
-      `Usage: ${displayName}${this.commands.length ? ' [command...]' : ''}${this.options.length ? ' [options]' : ''}`,
+  generateHelp(argv: Array<string> = process.argv, parameters: Array<any> = []): string {
+    let chunks = [
+      `Usage: ${Helpers.getDisplayName(argv)}${this.commands.length ? ' [command...]' : ''}${this.options.length ? ' [options]' : ''}`,
     ]
     if (this.descriptionText) {
       chunks.push('')
       chunks.push(this.descriptionText)
     }
-    if (this.options) {
+
+    function appendOptions(options: Array<Option>) {
+      chunks = chunks.concat(cliff.stringifyRows(options.map(function(option: Option) {
+        const aliases = Helpers.sortAliases(option.aliases)
+        const params = Helpers.stringifyParameters(option.parameter ? [option.parameter] : [])
+        return ['  ', aliases.join(', '), '  ', params.join(' '), '  ', option.description]
+      })))
+    }
+
+    if (this.options.length) {
       chunks.push('')
-      chunks.push('Options:')
-      const rows = []
-      for (let i = 0, length = this.options.length; i < length; i++) {
-        const option = this.options[i]
-        const aliases = Helpers.sortOptionAliases(option.aliases.slice()).map(a => (a.length === 1 ? `-${a}` : `--${a}`))
-        const parameters = Helpers.stringifyParameters(option.parameters, option.parameterNames)
-        rows.push(['  ', aliases.join(', '), '  ', parameters.join(' '), '  ', option.description])
-      }
-      chunks.push(cliff.stringifyRows(rows))
+      chunks.push('Global Options:')
+      appendOptions(this.options.filter(o => o.command === null))
     }
-    if (this.commands) {
+
+    const closestCommand = Helpers.getClosestCommand(this.commands, parameters)
+    if (closestCommand) {
+      const commandOptions = this.options.filter(o => o.command === closestCommand.name)
+      if (commandOptions.length) {
+        chunks.push('')
+        chunks.push('Command Options:')
+        appendOptions(commandOptions)
+      }
+    }
+
+    let subCommands = this.commands
+    if (closestCommand) {
+      const closestCommandParams = Helpers.stringifyParameters(closestCommand.parameters)
+      subCommands = subCommands.filter(c => c.name.startsWith(closestCommand.name) && c.name !== closestCommand.name)
+      chunks[0] = `Usage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${closestCommandParams ? ` ${closestCommandParams.join(' ')}` : ''}${this.options.length ? ' [options]' : ''}`
+      if (subCommands.length) {
+        chunks[0] += `\nUsage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${subCommands.length ? ' [subcommand...]' : ''}${this.options.length ? ' [options]' : ''}`
+      }
+    }
+    if (subCommands.length) {
       chunks.push('')
-      chunks.push('Commands:')
-      const rows = []
-      for (let i = 0, length = this.commands.length; i < length; i++) {
-        const entry = this.commands[i]
-        const parameters = Helpers.stringifyParameters(entry.parameters, entry.parameterNames)
-        rows.push(['  ', entry.command.join(' '), '  ', parameters, '  ', entry.description])
-      }
-      chunks.push(cliff.stringifyRows(rows))
+      chunks.push(`${closestCommand ? 'Subc' : 'C'}ommands:`)
+      chunks = chunks.concat(cliff.stringifyRows(subCommands.map(function(command: CommandType) {
+        const params = Helpers.stringifyParameters(command.parameters)
+        return ['  ', command.name.split('.').join(' '), '  ', params.join(' '), '  ', command.description]
+      })))
     }
-    const helpText = chunks.join('\n')
-    if (!soft) {
-      console.log(helpText)
-    }
-    return helpText
+    return chunks.join('\n')
+  }
+  showHelp(argv: Array<string> = process.argv, parameters: Array<any> = []): void {
+    console.log(this.generateHelp(argv, parameters))
   }
 }
 
