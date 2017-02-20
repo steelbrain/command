@@ -10,7 +10,7 @@ export type Option = {
   aliases: Array<string>,
   parameter: ?Parameter,
   description: string,
-  defaultValues: Array<any>
+  defaultValue: any,
 }
 
 export type OptionEntry = {

@@ -78,14 +78,6 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     parsedOptions.push(lastOption)
   }
 
-  // Process the bool options
-  for (let i = 0, length = parsedOptions.length; i < length; i++) {
-    const entry = parsedOptions[i]
-    if (!entry.option.parameter) {
-      entry.value = true
-    }
-  }
-
   let command = null
   for (let i = rawParameters.length; i--;) {
     const currentName = rawParameters.slice(0, i + 1).join('.')
@@ -119,8 +111,26 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     } else if (availableParameters.length) {
       throw new Error(`Too many parameters for command: ${command.name.split('.').join(' ')}`)
     }
+  } else parsedParameters.unshift(...rawParameters)
+
+  // Process the bool options and fill defaults
+  for (let i = 0, length = parsedOptions.length; i < length; i++) {
+    const entry = parsedOptions[i]
+    if (!entry.option.parameter) {
+      entry.value = true
+    }
   }
-  // TODO: fill default option values
+
+  // Add defaults
+  options.forEach(function(option) {
+    if (!parsedOptions.find(e => e.option === option)) {
+      parsedOptions.push({
+        option,
+        name: '',
+        value: option.defaultValue,
+      })
+    }
+  })
 
   return {
     options: parsedOptions,

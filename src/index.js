@@ -53,7 +53,7 @@ class Command {
     this.commands.push({ name, parameters, description, callback })
     return this
   }
-  option(option: string, description: string, ...defaultValues: Array<any>): this {
+  option(option: string, description: string, defaultValue: any = null): this {
     invariant(typeof option === 'string', 'option must be a string')
     invariant(typeof description === 'string', 'description must be a string')
 
@@ -61,7 +61,7 @@ class Command {
     if (this.options.find(i => i.aliases.find(j => aliases.indexOf(j) !== -1))) {
       throw new Error(`parts of option '${option}' are already registered`)
     }
-    this.options.push({ aliases, parameter, description, defaultValues, command: this.lastCommand })
+    this.options.push({ aliases, parameter, description, defaultValue, command: this.lastCommand })
     return this
   }
   parseArgv(given: Array<string>): {
