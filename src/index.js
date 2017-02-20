@@ -67,9 +67,10 @@ class Command {
   parseArgv(given: Array<string>): {
     options: Object,
     command: ?CommandType,
-    parameters: Array<string>,
+    parameters: Array<any>,
+    rawParameters: Array<any>,
   } {
-    const { options, command, parameters } = parseArgv(given, this.commands, this.options)
+    const { options, command, parameters, rawParameters } = parseArgv(given, this.commands, this.options)
     const mergedOptions = {}
     options.forEach(function(entry) {
       entry.option.aliases.forEach(function(givenAlias) {
@@ -78,7 +79,7 @@ class Command {
         mergedOptions[camelCase(alias)] = entry.value
       })
     })
-    return { options: mergedOptions, command, parameters }
+    return { options: mergedOptions, command, parameters, rawParameters }
   }
   process(argv: Array<string> = process.argv): Promise<void> {
     let result
@@ -91,12 +92,12 @@ class Command {
       return Promise.resolve()
       // ^ Necessary for flow
     }
-    const { options, command, parameters } = result
+    const { options, command, parameters, rawParameters } = result
     if (options.version) {
       console.log(this.appVersion)
       process.exit(0)
     } else if (options.help) {
-      this.showHelp(argv, parameters)
+      this.showHelp(argv, rawParameters)
       process.exit(0)
     } else if (!parameters.length && this.defaultCallback) {
       // $FlowIgnore: We validate that defaultCallback is not null here flow don't worry
@@ -105,7 +106,7 @@ class Command {
       if (parameters.length) {
         console.log('Error: Invalid subcommand', parameters[0])
       }
-      this.showHelp(argv, parameters)
+      this.showHelp(argv, rawParameters)
       process.exit(1)
       return Promise.resolve()
       // ^ Necessary for flow
@@ -151,6 +152,7 @@ class Command {
     let subCommands = this.commands
     if (closestCommand) {
       subCommands = subCommands.filter(c => c.name.startsWith(closestCommand.name) && c.name !== closestCommand.name)
+      chunks[0] = `Usage: ${Helpers.getDisplayName(argv)} ${closestCommand.name.split('.').join(' ')}${subCommands.length ? ' [subcommand...]' : ''}${this.options.length ? ' [options]' : ''}`
     }
     if (subCommands.length) {
       chunks.push('')

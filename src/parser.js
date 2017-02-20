@@ -24,6 +24,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
   options: Array<OptionEntry>,
   command: ?Command,
   parameters: Array<any>,
+  rawParameters: Array<any>,
 } {
   let parsedParameters = []
   const rawParameters = []
@@ -131,18 +132,25 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
 
   // Add defaults
   options.forEach(function(option) {
-    if (!parsedOptions.find(e => e.option === option)) {
-      parsedOptions.push({
-        option,
-        name: '',
-        value: option.parameter ? option.defaultValue : false,
-      })
+    if (parsedOptions.find(e => e.option === option)) {
+      return
     }
+
+    let defaultValue
+    if (option.parameter) {
+      defaultValue = option.parameter.type.endsWith('variadic') ? [] : ''
+    } else defaultValue = false
+    parsedOptions.push({
+      option,
+      name: '',
+      value: defaultValue,
+    })
   })
 
   return {
     options: parsedOptions,
     command,
     parameters: parsedParameters,
+    rawParameters,
   }
 }
