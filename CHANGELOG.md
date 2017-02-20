@@ -1,3 +1,7 @@
+### 2.0.1
+
+- Fix a bug where options would not be passed to callbacks correctly
+
 ### 2.0.0
 
 - Release might be slightly unstable

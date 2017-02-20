@@ -113,7 +113,7 @@ class Command {
     }
     return new Promise(function(resolve) {
       // $FlowIgnore: Command is not null here, flow thinks otherwise
-      resolve(command.callback.apply(command, parameters))
+      resolve(command.callback.apply(command, [options].concat(parameters)))
     })
   }
   generateHelp(argv: Array<string> = process.argv, parameters: Array<any> = []): string {
