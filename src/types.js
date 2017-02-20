@@ -13,14 +13,15 @@ export type Option = {
   defaultValues: Array<any>
 }
 
+export type OptionEntry = {
+  name: string,
+  value: any,
+  option: Option,
+}
+
 export type Command = {
   name: string,
-  command: Array<string>,
   parameters: Array<Parameter>,
   description: string,
   callback: ?((command: string) => void)
 }
-
-// Reminder to self
-// --help [something optiona] <required>
-// help.get <name> [scope]

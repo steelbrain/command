@@ -16,7 +16,7 @@ function getOptionByAlias(options: Array<Option>, alias: string): Option {
 export default function parse(given: Array<string>, commands: Array<Command>, options: Array<Option>): {
   options: Array<OptionEntry>,
   command: ?Command,
-  parameters: Array<string>,
+  parameters: Array<any>,
 } {
   let parsedParameters = []
   const rawParameters = []
@@ -98,26 +98,27 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
 
   if (command) {
     let notEnough = false
-    let parameterIndex = 0
+    const availableParameters = parsedParameters.slice()
+    parsedParameters = []
     for (let i = 0, length = command.parameters.length; i < length; i++) {
       const parameter = command.parameters[i]
-      const value = parsedParameters[parameterIndex]
+      const value = availableParameters.pop()
       if (!value && parameter.type.startsWith('required')) {
         notEnough = true
         break
       } else if (parameter.type.endsWith('variadic')) {
-        parameterIndex = parsedParameters.length
+        parsedParameters.push(availableParameters.slice())
+        availableParameters.length = 0
         break
       } else if (value) {
-        parameterIndex++
+        parsedParameters.push(value)
       }
     }
     if (notEnough) {
       throw new Error(`Not enough parameters for command: ${command.name.split('.').join(' ')}`)
-    } else if (parameterIndex < parsedParameters.length) {
+    } else if (availableParameters.length) {
       throw new Error(`Too many parameters for command: ${command.name.split('.').join(' ')}`)
     }
-    // TODO: Validation and filling
   }
   // TODO: fill default option values
 

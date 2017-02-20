@@ -1,8 +1,7 @@
 /* @flow */
 
 import Path from 'path'
-import invariant from 'assert'
-import type { Option, Parameter } from './types'
+import type { Parameter } from './types'
 
 export function getDisplayName(argv: Array<string>): string {
   return Path.basename(argv[1] || 'node')
@@ -10,7 +9,8 @@ export function getDisplayName(argv: Array<string>): string {
 
 export const DELIMETER = /,\s+|,|\s+/
 // ^ command with space or comma or space
-export const OPTION_NAME = /^\-\-(.*)|\-(.*)$/
+export const OPTION_NAME = /^(--[a-z0-9]+)$|^(-[a-z0-9]+)$/i
+// ^ Include - or -- in captured to distinguish between two
 export const PARAM_STRING_REQUIRED = /^<(\S+)>$/
 export const PARAM_STRING_OPTIONAL = /^\[(\S+)\]$/
 export const PARAM_STRING_REQUIRED_VARIADIC = /^<(\S+) *\.\.\.>$/
@@ -19,18 +19,18 @@ export const PARAM_STRING_OPTIONAL_VARIADIC = /^\[(\S+) *\.\.\.\]$/
 export function parseParameter(chunk: string): ?Parameter {
   let name
   switch (true) {
-    case PARAM_STRING_REQUIRED.test(chunk):
-      name = PARAM_STRING_REQUIRED.exec(chunk)[1]
-      return { type: 'required-string', name }
-    case PARAM_STRING_OPTIONAL.test(chunk):
-      name = PARAM_STRING_OPTIONAL.exec(chunk)[1]
-      return { type: 'optional-string', name }
     case PARAM_STRING_REQUIRED_VARIADIC.test(chunk):
       name = PARAM_STRING_REQUIRED_VARIADIC.exec(chunk)[1]
-      return { type: 'required-string-variadic', name }
+      return { type: 'required-variadic', name }
+    case PARAM_STRING_REQUIRED.test(chunk):
+      name = PARAM_STRING_REQUIRED.exec(chunk)[1]
+      return { type: 'required', name }
     case PARAM_STRING_OPTIONAL_VARIADIC.test(chunk):
       name = PARAM_STRING_OPTIONAL_VARIADIC.exec(chunk)[1]
-      return { type: 'optional-string-variadic', name }
+      return { type: 'optional-variadic', name }
+    case PARAM_STRING_OPTIONAL.test(chunk):
+      name = PARAM_STRING_OPTIONAL.exec(chunk)[1]
+      return { type: 'optional', name }
     default:
       return null
   }
@@ -61,7 +61,7 @@ export function validateParameterPosition(parameter: Parameter, index: number, p
   }
 }
 
-export function parseCommand(given: string): { name: string, command: Array<string>, parameters: Array<Parameter> } {
+export function parseCommand(given: string): { name: string, parameters: Array<Parameter> } {
   let name
   const chunks = given.trim().split(DELIMETER)
   const parameters = []
@@ -85,19 +85,19 @@ export function parseCommand(given: string): { name: string, command: Array<stri
 
   return {
     name,
-    command: name.split('.'),
     parameters,
   }
 }
 
-export function parseOption(option: string): { aliases: Array<string>, parameters: Array<Parameter> } {
+// NOTE: Stores - or -- in the aliases
+export function parseOption(option: string): { aliases: Array<string>, parameter: ?Parameter } {
   const chunks = option.trim().split(DELIMETER)
   const aliases = []
-  const parameters = []
   const errorMessage = `Option '${option}' is invalid`
+  let parameter
   let processingAliases = true
 
-  chunks.forEach(function(chunk, index) {
+  chunks.forEach(function(chunk) {
     if (OPTION_NAME.test(chunk)) {
       if (!processingAliases) {
         throw new Error(`${errorMessage} because aliases must not appear after options`)
@@ -113,8 +113,13 @@ export function parseOption(option: string): { aliases: Array<string>, parameter
     if (!parsed) {
       throw new Error(errorMessage)
     }
-    validateParameterPosition(parsed, index, parameters, chunks, errorMessage)
-    parameters.push(parsed)
+    if (parsed.type.endsWith('variadic')) {
+      throw new Error(`${errorMessage} because an option must not have variadic parameters`)
+    }
+    if (parameter) {
+      throw new Error(`${errorMessage} because an option must not have more than one parameter`)
+    }
+    parameter = parsed
   })
 
   if (!aliases.length) {
@@ -123,57 +128,6 @@ export function parseOption(option: string): { aliases: Array<string>, parameter
 
   return {
     aliases,
-    parameters,
-  }
-}
-
-function something() {
-  const option = {
-    getOption(options: Array<Option>, givenName: string): Object {
-      const matched = OPTION_NAME.exec(givenName)
-      const name = matched[1] || matched[2]
-      const found = options.find(entry => entry.aliases.find(i => i === name))
-      if (found) {
-        return {
-          name,
-          values: [],
-          aliases: found.aliases,
-          parameters: found.parameters,
-          defaultValues: found.defaultValues,
-        }
-      }
-      // For unknown options
-      return {
-        name,
-        values: [],
-        aliases: [name],
-        parameters: ['unknown'],
-        defaultValues: [],
-      }
-    },
-    acceptsMore(lastOption: Object): boolean {
-      if (!lastOption) {
-        return false
-      }
-      return !!(lastOption.values.length !== lastOption.parameters.length ||
-             ~lastOption.parameters[lastOption.parameters.length - 1].indexOf('variadic'))
-    },
-    requiresMore(lastOption: Object): boolean {
-      if (!lastOption) {
-        return false
-      }
-      const parameter = lastOption.parameters[0]
-      if (parameter === 'unknown' || parameter === 'bool') {
-        return false
-      }
-      return lastOption.values.length < lastOption.parameters.filter(i => ~i.indexOf('required')).length
-    },
-    singlify(parameters: Array<ParameterType>, values: Array<any>): any {
-      const parameter = parameters[0]
-      if (parameters.length === 1 && (parameter === 'bool' || !~parameter.indexOf('variadic'))) {
-        return values[0]
-      }
-      return values
-    },
+    parameter: parameter || null,
   }
 }
