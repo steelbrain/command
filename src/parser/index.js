@@ -13,14 +13,13 @@ function getOptionByAlias(options: Array<Option>, alias: string): Option {
   throw new Error(`Option ${alias} is not recognized`)
 }
 
-// TODO: --a !== -a
 export default function parse(given: Array<string>, commands: Array<Command>, options: Array<Option>): {
   options: Array<OptionEntry>,
-  command: null,
+  command: ?Command,
   parameters: Array<string>,
 } {
-  let command
   let parsedParameters = []
+  const rawParameters = []
   const parsedOptions = []
 
   let lastOption: ?OptionEntry = null
@@ -60,7 +59,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       }
     } else {
       if (!lastOption) {
-        parsedParameters.push(chunk)
+        rawParameters.push(chunk)
         continue
       }
       if (lastOption.option.parameter && !lastOption.value) {
@@ -68,7 +67,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
         parsedOptions.push(lastOption)
         lastOption = null
       } else {
-        parsedParameters.push(chunk)
+        rawParameters.push(chunk)
       }
     }
   }
@@ -87,12 +86,44 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
     }
   }
 
-  // TODO: Find out the command and see if the parameters are valid
+  let command = null
+  for (let i = rawParameters.length; i--;) {
+    const currentName = rawParameters.slice(0, i + 1).join('.')
+    command = commands.find(entry => entry.name === currentName)
+    if (command) {
+      parsedParameters.unshift(...rawParameters.slice(i + 1))
+      break
+    }
+  }
+
+  if (command) {
+    let notEnough = false
+    let parameterIndex = 0
+    for (let i = 0, length = command.parameters.length; i < length; i++) {
+      const parameter = command.parameters[i]
+      const value = parsedParameters[parameterIndex]
+      if (!value && parameter.type.startsWith('required')) {
+        notEnough = true
+        break
+      } else if (parameter.type.endsWith('variadic')) {
+        parameterIndex = parsedParameters.length
+        break
+      } else if (value) {
+        parameterIndex++
+      }
+    }
+    if (notEnough) {
+      throw new Error(`Not enough parameters for command: ${command.name.split('.').join(' ')}`)
+    } else if (parameterIndex < parsedParameters.length) {
+      throw new Error(`Too many parameters for command: ${command.name.split('.').join(' ')}`)
+    }
+    // TODO: Validation and filling
+  }
+  // TODO: fill default option values
 
   return {
     options: parsedOptions,
-    command: null,
-    // TODO: Replace with real command
+    command,
     parameters: parsedParameters,
   }
 }
