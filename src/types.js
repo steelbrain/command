@@ -1,14 +1,14 @@
 /* @flow */
 
 export type Parameter = {
-  type: 'optional-string' | 'required-string' | 'optional-string-variadic' | 'required-string-variadic',
+  type: 'optional' | 'required' | 'optional-variadic' | 'required-variadic',
   name: string,
 }
 
 export type Option = {
   command: ?string,
   aliases: Array<string>,
-  parameters: Array<Parameter>,
+  parameter: ?Parameter,
   description: string,
   defaultValues: Array<any>
 }
