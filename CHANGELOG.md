@@ -1,3 +1,7 @@
+### 2.0.2
+
+- Fix a bug where variadic at the end would sometimes be an non-empty undefined array
+
 ### 2.0.1
 
 - Fix a bug where options would not be passed to callbacks correctly

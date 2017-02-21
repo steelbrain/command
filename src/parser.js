@@ -108,7 +108,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
         notEnough = true
         break
       } else if (parameter.type.endsWith('variadic')) {
-        parsedParameters.push([value].concat(availableParameters.slice()))
+        parsedParameters.push((value ? [value] : []).concat(availableParameters.slice()))
         availableParameters.length = 0
         break
       } else if (value) {
