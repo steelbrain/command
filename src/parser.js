@@ -144,10 +144,12 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       return
     }
 
-    let defaultValue
-    if (option.parameter) {
-      defaultValue = option.parameter.type.endsWith('variadic') ? [] : ''
-    } else defaultValue = false
+    let defaultValue = option.defaultValue
+    if (defaultValue === null) {
+      if (option.parameter) {
+        defaultValue = option.parameter.type.endsWith('variadic') ? [] : ''
+      } else defaultValue = false
+    }
     parsedOptions.push({
       option,
       name: '',

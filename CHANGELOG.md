@@ -1,3 +1,7 @@
+### 2.0.5
+
+- Fix a bug where defaults won't be passed in correctly
+
 ### 2.0.4
 
 - Allow options of same name for different commands
