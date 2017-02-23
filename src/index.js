@@ -58,7 +58,7 @@ class Command {
     invariant(typeof description === 'string', 'description must be a string')
 
     const { aliases, parameter } = Helpers.parseOption(option)
-    if (this.options.find(i => i.aliases.find(j => aliases.indexOf(j) !== -1))) {
+    if (this.options.find(i => i.aliases.find(j => aliases.indexOf(j) !== -1) && i.command === this.lastCommand)) {
       throw new Error(`parts of option '${option}' are already registered`)
     }
     this.options.push({ aliases, parameter, description, defaultValue, command: this.lastCommand })

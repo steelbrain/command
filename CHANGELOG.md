@@ -1,3 +1,7 @@
+### 2.0.4
+
+- Allow options of same name for different commands
+
 ### 2.0.3
 
 - Do not show not enough or too many parameters errors when help is requested
