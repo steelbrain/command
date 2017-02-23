@@ -115,10 +115,13 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
         parsedParameters.push(value)
       }
     }
-    if (notEnough) {
-      throw generateError(`Not enough parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
-    } else if (availableParameters.length) {
-      throw generateError(`Too many parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
+    // Do not throw these errors when user asks --help
+    if (!parsedOptions.some(o => o.option.aliases.indexOf('--help') !== -1)) {
+      if (notEnough) {
+        throw generateError(`Not enough parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
+      } else if (availableParameters.length) {
+        throw generateError(`Too many parameters for command: ${command.name.split('.').join(' ')}`, rawParameters)
+      }
     }
   } else parsedParameters.unshift(...rawParameters)
 

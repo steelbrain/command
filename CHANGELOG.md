@@ -1,3 +1,7 @@
+### 2.0.3
+
+- Do not show not enough or too many parameters errors when help is requested
+
 ### 2.0.2
 
 - Fix a bug where variadic at the end would sometimes be an non-empty undefined array
