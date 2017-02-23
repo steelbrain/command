@@ -1,6 +1,6 @@
 {
   "name": "sb-command",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "CLI command and options parser",
   "main": "lib/index.js",
   "scripts": {
