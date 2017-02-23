@@ -1,6 +1,7 @@
 ### 2.0.4
 
 - Allow options of same name for different commands
+- Do not mix up options from other commands when passing forward
 
 ### 2.0.3
 

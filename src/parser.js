@@ -5,8 +5,9 @@ import type { Command, Option, OptionEntry } from './types'
 const OPTION_SHORT_MULTI = /^-([a-z0-9]{2,})$/i
 const OPTION_COMPRESSED = /^(--[a-z0-9-]+)=(.+)$|^(-[a-z0-9]+)=(.+)$/i
 
-function getOptionByAlias(options: Array<Option>, alias: string): Option {
-  const foundOption = options.find(option => option.aliases.indexOf(alias) !== -1)
+function getOptionByAlias(options: Array<Option>, alias: string, rawParameters: Array<string>): Option {
+  const validationPrefix = rawParameters.join('.')
+  const foundOption = options.find((option) => option.aliases.indexOf(alias) !== -1 && (!option.command || validationPrefix.indexOf(option.command) === 0))
   if (foundOption) {
     return foundOption
   }
@@ -63,7 +64,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
       lastOption = {
         name: chunk,
         value: null,
-        option: getOptionByAlias(options, chunk),
+        option: getOptionByAlias(options, chunk, rawParameters),
       }
     } else {
       if (!lastOption) {
@@ -134,8 +135,12 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
   }
 
   // Add defaults
+  const validationPrefix = rawParameters.join('.')
   options.forEach(function(option) {
     if (parsedOptions.find(e => e.option === option)) {
+      return
+    }
+    if (option.command && validationPrefix.indexOf(option.command) !== 0) {
       return
     }
 
