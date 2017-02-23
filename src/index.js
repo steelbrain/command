@@ -93,10 +93,10 @@ class Command {
       // ^ Necessary for flow
     }
     const { options, command, parameters, rawParameters } = result
-    if (options.version) {
+    if (parameters.length === 0 && options.version) {
       console.log(this.appVersion)
       process.exit(0)
-    } else if (options.help) {
+    } else if (parameters.length === 0 && options.help) {
       this.showHelp(argv, rawParameters)
       process.exit(0)
     } else if (!parameters.length && this.defaultCallback) {
