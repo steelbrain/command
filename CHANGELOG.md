@@ -1,3 +1,7 @@
+### 2.0.6
+
+- Fix a bug where expanded `--key=value` and `-abcd` would not work
+
 ### 2.0.5
 
 - Fix a bug where defaults won't be passed in correctly

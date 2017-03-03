@@ -33,7 +33,7 @@ export default function parse(given: Array<string>, commands: Array<Command>, op
 
   let lastOption: ?OptionEntry = null
   const argv = given.slice(2)
-  for (let i = 0, length = argv.length; i < length; i++) {
+  for (let i = 0; i < argv.length; i++) {
     const chunk = argv[i]
     if (chunk === '--') {
       parsedParameters = parsedParameters.concat(argv.slice(i + 1))
