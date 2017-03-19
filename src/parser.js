@@ -7,7 +7,7 @@ const OPTION_COMPRESSED = /^(--[a-z0-9-]+)=(.+)$|^(-[a-z0-9]+)=(.+)$/i
 
 function getOptionByAlias(options: Array<Option>, alias: string, rawParameters: Array<string>): Option {
   const validationPrefix = rawParameters.join('.')
-  const foundOption = options.find((option) => option.aliases.indexOf(alias) !== -1 && (!option.command || validationPrefix.indexOf(option.command) === 0))
+  const foundOption = options.find(option => option.aliases.indexOf(alias) !== -1 && (!option.command || validationPrefix.indexOf(option.command) === 0))
   if (foundOption) {
     return foundOption
   }

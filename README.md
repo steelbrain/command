@@ -1,6 +1,8 @@
 sb-command
 =========
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/steelbrain/command.svg)](https://greenkeeper.io/)
+
 sb-command is the CLI parser you'll ever need.
 
 ## Documentation
