@@ -24,7 +24,7 @@
     "url": "https://github.com/steelbrain/command/issues"
   },
   "dependencies": {
-    "camelcase": "^4.0.0",
+    "camelcase": "^5.0.0",
     "cliff": "^0.1.10"
   },
   "devDependencies": {
